@@ -4,219 +4,213 @@
 #include "crn_console.h"
 #include "crn_data_stream.h"
 #include "crn_threading.h"
+#include "dll_exports.h"
 
-namespace crnlib
-{
-   eConsoleMessageType                       console::m_default_category = cInfoConsoleMessage;
-   crnlib::vector<console::console_func>      console::m_output_funcs;
-   bool                                      console::m_crlf = true;
-   bool                                      console::m_prefixes = true;
-   bool                                      console::m_output_disabled;
-   data_stream*                              console::m_pLog_stream;
-   mutex*                                    console::m_pMutex;
-   uint                                      console::m_num_messages[cCMTTotal];
-   bool                                      console::m_at_beginning_of_line = true;
+namespace crnlib {
+	eConsoleMessageType console::m_default_category = cInfoConsoleMessage;
+	crnlib::vector<console::console_func> console::m_output_funcs;
+	bool console::m_crlf = true;
+	bool console::m_prefixes = true;
+	bool console::m_output_disabled = true;
+	data_stream* console::m_pLog_stream;
+	mutex* console::m_pMutex;
+	uint console::m_num_messages[cCMTTotal];
+	bool console::m_at_beginning_of_line = true;
 
-   const uint cConsoleBufSize = 4096;
+	DLL_EXPORT void DLL_API disable_console_output()
+	{
+		console::disable_output();
+	}
 
-   void console::init()
-   {
-      if (!m_pMutex)
-      {
-         m_pMutex = crnlib_new<mutex>();
-      }
-   }
+	DLL_EXPORT void DLL_API enable_console_output()
+	{
+		console::enable_output();
+	}
 
-   void console::deinit()
-   {
-      if (m_pMutex)
-      {
-         crnlib_delete(m_pMutex);
-         m_pMutex = NULL;
-      }
-   }
+	DLL_EXPORT bool DLL_API get_console_output_disabled()
+	{
+		return console::get_output_disabled();
+	}
 
-   void console::disable_crlf()
-   {
-      init();
+	const uint cConsoleBufSize = 4096;
 
-      m_crlf = false;
-   }
+	void console::init() {
+		if (!m_pMutex) {
+			m_pMutex = crnlib_new<mutex>();
+		}
+	}
 
-   void console::enable_crlf()
-   {
-      init();
+	void console::deinit() {
+		if (m_pMutex) {
+			crnlib_delete(m_pMutex);
+			m_pMutex = NULL;
+		}
+	}
 
-      m_crlf = true;
-   }
+	void console::disable_crlf() {
+		init();
 
-   void console::vprintf(eConsoleMessageType type, const char* p, va_list args)
-   {
-      init();
+		m_crlf = false;
+	}
 
-      scoped_mutex lock(*m_pMutex);
+	void console::enable_crlf() {
+		init();
 
-      m_num_messages[type]++;
+		m_crlf = true;
+	}
 
-      char buf[cConsoleBufSize];
-      vsprintf_s(buf, cConsoleBufSize, p, args);
+	void console::vprintf(eConsoleMessageType type, const char* p, va_list args) {
+		init();
 
-      bool handled = false;
+		scoped_mutex lock(*m_pMutex);
 
-      if (m_output_funcs.size())
-      {
-         for (uint i = 0; i < m_output_funcs.size(); i++)
-            if (m_output_funcs[i].m_func(type, buf, m_output_funcs[i].m_pData))
-               handled = true;
-      }
+		m_num_messages[type]++;
 
-      const char* pPrefix = NULL;
-      if ((m_prefixes) && (m_at_beginning_of_line))
-      {
-         switch (type)
-         {
-            case cDebugConsoleMessage:    pPrefix = "Debug: ";   break;
-            case cWarningConsoleMessage:  pPrefix = "Warning: "; break;
-            case cErrorConsoleMessage:    pPrefix = "Error: ";   break;
-            default: break;
-         }
-      }
+		char buf[cConsoleBufSize];
+		vsprintf_s(buf, cConsoleBufSize, p, args);
 
-      if ((!m_output_disabled) && (!handled))
-      {
-         if (pPrefix)
-            ::printf("%s", pPrefix);
-         ::printf(m_crlf ? "%s\n" : "%s", buf);
-      }
+		bool handled = false;
 
-      uint n = strlen(buf);
-      m_at_beginning_of_line = (m_crlf) || ((n) && (buf[n - 1] == '\n'));
+		if (m_output_funcs.size()) {
+			for (uint i = 0; i < m_output_funcs.size(); i++)
+				if (m_output_funcs[i].m_func(type, buf, m_output_funcs[i].m_pData))
+					handled = true;
+		}
 
-      if ((type != cProgressConsoleMessage) && (m_pLog_stream))
-      {
-         // Yes this is bad.
-         dynamic_string tmp_buf(buf);
+		const char* pPrefix = NULL;
+		if ((m_prefixes) && (m_at_beginning_of_line)) {
+			switch (type) {
+			case cDebugConsoleMessage:
+				pPrefix = "Debug: ";
+				break;
+			case cWarningConsoleMessage:
+				pPrefix = "Warning: ";
+				break;
+			case cErrorConsoleMessage:
+				pPrefix = "Error: ";
+				break;
+			default:
+				break;
+			}
+		}
 
-         tmp_buf.translate_lf_to_crlf();
+		if ((!m_output_disabled) && (!handled)) {
+			if (pPrefix)
+				::printf("%s", pPrefix);
+			::printf(m_crlf ? "%s\n" : "%s", buf);
+		}
 
-         m_pLog_stream->printf(m_crlf ? "%s\r\n" : "%s", tmp_buf.get_ptr());
-         m_pLog_stream->flush();
-      }
-   }
+		uint n = strlen(buf);
+		m_at_beginning_of_line = (m_crlf) || ((n) && (buf[n - 1] == '\n'));
 
-   void console::printf(eConsoleMessageType type, const char* p, ...)
-   {
-      va_list args;
-      va_start(args, p);
-      vprintf(type, p, args);
-      va_end(args);
-   }
+		if ((type != cProgressConsoleMessage) && (m_pLog_stream)) {
+			// Yes this is bad.
+			dynamic_string tmp_buf(buf);
 
-   void console::printf(const char* p, ...)
-   {
-      va_list args;
-      va_start(args, p);
-      vprintf(m_default_category, p, args);
-      va_end(args);
-   }
+			tmp_buf.translate_lf_to_crlf();
 
-   void console::set_default_category(eConsoleMessageType category)
-   {
-      init();
+			m_pLog_stream->printf(m_crlf ? "%s\r\n" : "%s", tmp_buf.get_ptr());
+			m_pLog_stream->flush();
+		}
+	}
 
-      m_default_category = category;
-   }
+	void console::printf(eConsoleMessageType type, const char* p, ...) {
+		va_list args;
+		va_start(args, p);
+		vprintf(type, p, args);
+		va_end(args);
+	}
 
-   eConsoleMessageType console::get_default_category()
-   {
-      init();
+	void console::printf(const char* p, ...) {
+		va_list args;
+		va_start(args, p);
+		vprintf(m_default_category, p, args);
+		va_end(args);
+	}
 
-      return m_default_category;
-   }
+	void console::set_default_category(eConsoleMessageType category) {
+		init();
 
-   void console::add_console_output_func(console_output_func pFunc, void* pData)
-   {
-      init();
+		m_default_category = category;
+	}
 
-      scoped_mutex lock(*m_pMutex);
+	eConsoleMessageType console::get_default_category() {
+		init();
 
-      m_output_funcs.push_back(console_func(pFunc, pData));
-   }
+		return m_default_category;
+	}
 
-   void console::remove_console_output_func(console_output_func pFunc)
-   {
-      init();
+	void console::add_console_output_func(console_output_func pFunc, void* pData) {
+		init();
 
-      scoped_mutex lock(*m_pMutex);
+		scoped_mutex lock(*m_pMutex);
 
-      for (int i = m_output_funcs.size() - 1; i >= 0; i--)
-      {
-         if (m_output_funcs[i].m_func == pFunc)
-         {
-            m_output_funcs.erase(m_output_funcs.begin() + i);
-         }
-      }
+		m_output_funcs.push_back(console_func(pFunc, pData));
+	}
 
-      if (!m_output_funcs.size())
-      {
-         m_output_funcs.clear();
-      }
-   }
+	void console::remove_console_output_func(console_output_func pFunc) {
+		init();
 
-   void console::progress(const char* p, ...)
-   {
-      va_list args;
-      va_start(args, p);
-      vprintf(cProgressConsoleMessage, p, args);
-      va_end(args);
-   }
+		scoped_mutex lock(*m_pMutex);
 
-   void console::info(const char* p, ...)
-   {
-      va_list args;
-      va_start(args, p);
-      vprintf(cInfoConsoleMessage, p, args);
-      va_end(args);
-   }
+		for (int i = m_output_funcs.size() - 1; i >= 0; i--) {
+			if (m_output_funcs[i].m_func == pFunc) {
+				m_output_funcs.erase(m_output_funcs.begin() + i);
+			}
+		}
 
-   void console::message(const char* p, ...)
-   {
-      va_list args;
-      va_start(args, p);
-      vprintf(cMessageConsoleMessage, p, args);
-      va_end(args);
-   }
+		if (!m_output_funcs.size()) {
+			m_output_funcs.clear();
+		}
+	}
 
-   void console::cons(const char* p, ...)
-   {
-      va_list args;
-      va_start(args, p);
-      vprintf(cConsoleConsoleMessage, p, args);
-      va_end(args);
-   }
+	void console::progress(const char* p, ...) {
+		va_list args;
+		va_start(args, p);
+		vprintf(cProgressConsoleMessage, p, args);
+		va_end(args);
+	}
 
-   void console::debug(const char* p, ...)
-   {
-      va_list args;
-      va_start(args, p);
-      vprintf(cDebugConsoleMessage, p, args);
-      va_end(args);
-   }
+	void console::info(const char* p, ...) {
+		va_list args;
+		va_start(args, p);
+		vprintf(cInfoConsoleMessage, p, args);
+		va_end(args);
+	}
 
-   void console::warning(const char* p, ...)
-   {
-      va_list args;
-      va_start(args, p);
-      vprintf(cWarningConsoleMessage, p, args);
-      va_end(args);
-   }
+	void console::message(const char* p, ...) {
+		va_list args;
+		va_start(args, p);
+		vprintf(cMessageConsoleMessage, p, args);
+		va_end(args);
+	}
 
-   void console::error(const char* p, ...)
-   {
-      va_list args;
-      va_start(args, p);
-      vprintf(cErrorConsoleMessage, p, args);
-      va_end(args);
-   }
+	void console::cons(const char* p, ...) {
+		va_list args;
+		va_start(args, p);
+		vprintf(cConsoleConsoleMessage, p, args);
+		va_end(args);
+	}
 
-} // namespace crnlib
+	void console::debug(const char* p, ...) {
+		va_list args;
+		va_start(args, p);
+		vprintf(cDebugConsoleMessage, p, args);
+		va_end(args);
+	}
+
+	void console::warning(const char* p, ...) {
+		va_list args;
+		va_start(args, p);
+		vprintf(cWarningConsoleMessage, p, args);
+		va_end(args);
+	}
+
+	void console::error(const char* p, ...) {
+		va_list args;
+		va_start(args, p);
+		vprintf(cErrorConsoleMessage, p, args);
+		va_end(args);
+	}
+
+}  // namespace crnlib
