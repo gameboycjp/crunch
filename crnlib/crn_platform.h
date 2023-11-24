@@ -36,7 +36,7 @@ const bool c_crnlib_big_endian_platform = !c_crnlib_little_endian_platform;
 #define CRNLIB_BREAKPOINT DebugBreak();
 #define CRNLIB_BUILTIN_EXPECT(c, v) c
 #elif defined(__GNUC__) && !defined(ANDROID)
-#define CRNLIB_BREAKPOINT asm("int $3");
+#define CRNLIB_BREAKPOINT __builtin_trap(); // Use a generic trap for a breakpoint instead of relying on something platform-specific
 #define CRNLIB_BUILTIN_EXPECT(c, v) __builtin_expect(c, v)
 #else
 #define CRNLIB_BREAKPOINT
