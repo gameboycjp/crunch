@@ -30,7 +30,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: crunch-windows-x64
-        path: ${{ steps.buildoutput.outputs.build-output-dir }}
+        path: ${{ github.workspace }}/build
 
   build-linux:
     runs-on: ubuntu-latest
@@ -51,4 +51,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: crunch-linux-x64
-        path: ${{ steps.buildoutput.outputs.build-output-dir }}
+        path: ${{ github.workspace }}/build
