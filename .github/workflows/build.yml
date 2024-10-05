@@ -24,12 +24,13 @@ jobs:
       working-directory: ${{env.GITHUB_WORKSPACE}}
       # Add additional options to the MSBuild command line here (like platform or verbosity level).
       # See https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference
-      run: msbuild /m /p:Configuration=Release crn.2010.sln
+      run: msbuild /m /p:Configuration=Release /p:Platform=x64 crn.2010.sln
 
     - name: Upload
       uses: actions/upload-artifact@v4
       with:
         name: crunch-windows-x64
+        path: ${{ steps.buildoutput.outputs.build-output-dir }}
 
   build-linux:
     runs-on: ubuntu-latest
@@ -50,3 +51,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: crunch-linux-x64
+        path: ${{ steps.buildoutput.outputs.build-output-dir }}
