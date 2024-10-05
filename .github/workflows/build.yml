@@ -24,7 +24,7 @@ jobs:
       working-directory: ${{env.GITHUB_WORKSPACE}}
       # Add additional options to the MSBuild command line here (like platform or verbosity level).
       # See https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference
-      run: msbuild /m /p:Configuration=Release|x64 crn.2010.sln
+      run: msbuild /m /p:Configuration=Release crn.2010.sln
 
   build-linux:
     # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
